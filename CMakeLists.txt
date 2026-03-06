@@ -6,6 +6,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# -isystem /usr/include による #include_next 破壊を防止
+set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
+
 # コンパイラ警告の設定
 if(MSVC)
     add_compile_options(/W4)
