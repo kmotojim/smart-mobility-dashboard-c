@@ -316,3 +316,108 @@ TEST_F(VehicleResourceTest, 最大速度180を超えない) {
     auto body = json::parse(res->body);
     EXPECT_EQ(180, body["speed"].get<int>());
 }
+
+TEST_F(VehicleResourceTest, POST_gear_小文字rでRレンジに変更できる) {
+    auto cli = createClient();
+
+    auto res = cli.Post("/api/vehicle/gear/r");
+    ASSERT_TRUE(res);
+    EXPECT_EQ(200, res->status);
+
+    auto body = json::parse(res->body);
+    EXPECT_EQ("R", body["gear"].get<std::string>());
+}
+
+TEST_F(VehicleResourceTest, POST_gear_小文字nでNレンジに変更できる) {
+    auto cli = createClient();
+
+    auto res = cli.Post("/api/vehicle/gear/n");
+    ASSERT_TRUE(res);
+    EXPECT_EQ(200, res->status);
+
+    auto body = json::parse(res->body);
+    EXPECT_EQ("N", body["gear"].get<std::string>());
+}
+
+TEST_F(VehicleResourceTest, POST_gear_小文字pでPレンジに変更できる) {
+    auto cli = createClient();
+
+    cli.Post("/api/vehicle/gear/D");
+
+    auto res = cli.Post("/api/vehicle/gear/p");
+    ASSERT_TRUE(res);
+    EXPECT_EQ(200, res->status);
+
+    auto body = json::parse(res->body);
+    EXPECT_EQ("P", body["gear"].get<std::string>());
+}
+
+TEST_F(VehicleResourceTest, POST_gear_複数の無効なギア文字列でエラー) {
+    auto cli = createClient();
+
+    auto res1 = cli.Post("/api/vehicle/gear/Z");
+    ASSERT_TRUE(res1);
+    EXPECT_EQ(400, res1->status);
+
+    auto res2 = cli.Post("/api/vehicle/gear/DRIVE");
+    ASSERT_TRUE(res2);
+    EXPECT_EQ(400, res2->status);
+}
+
+TEST_F(VehicleResourceTest, エンジン異常時に低速走行中は減速しない) {
+    auto cli = createClient();
+
+    cli.Post("/api/vehicle/gear/D");
+    for (int i = 0; i < 3; i++) {
+        cli.Post("/api/vehicle/accelerate"); // 30km/h
+    }
+
+    auto res = cli.Post("/api/vehicle/engine-error/true");
+    ASSERT_TRUE(res);
+    EXPECT_EQ(200, res->status);
+
+    auto body = json::parse(res->body);
+    EXPECT_EQ(30, body["speed"].get<int>());
+    EXPECT_TRUE(body["engineWarning"].get<bool>());
+}
+
+TEST_F(VehicleResourceTest, リセット後に加速減速の一連操作ができる) {
+    auto cli = createClient();
+
+    cli.Post("/api/vehicle/gear/D");
+    cli.Post("/api/vehicle/accelerate");
+    cli.Post("/api/vehicle/accelerate");
+    cli.Post("/api/vehicle/reset");
+
+    auto res = cli.Get("/api/vehicle/state");
+    ASSERT_TRUE(res);
+    auto body = json::parse(res->body);
+    EXPECT_EQ(0, body["speed"].get<int>());
+    EXPECT_EQ("P", body["gear"].get<std::string>());
+    EXPECT_FALSE(body["engineWarning"].get<bool>());
+    EXPECT_TRUE(body["seatbeltWarning"].get<bool>());
+    EXPECT_FALSE(body["speedWarning"].get<bool>());
+}
+
+TEST_F(VehicleResourceTest, 速度警告が120以下で解除される) {
+    auto cli = createClient();
+
+    cli.Post("/api/vehicle/gear/D");
+    for (int i = 0; i < 13; i++) {
+        cli.Post("/api/vehicle/accelerate"); // 130km/h
+    }
+
+    auto stateRes = cli.Get("/api/vehicle/state");
+    auto stateBody = json::parse(stateRes->body);
+    EXPECT_TRUE(stateBody["speedWarning"].get<bool>());
+
+    for (int i = 0; i < 2; i++) {
+        cli.Post("/api/vehicle/decelerate"); // 110km/h
+    }
+
+    auto res = cli.Get("/api/vehicle/state");
+    ASSERT_TRUE(res);
+    auto body = json::parse(res->body);
+    EXPECT_EQ(110, body["speed"].get<int>());
+    EXPECT_FALSE(body["speedWarning"].get<bool>());
+}

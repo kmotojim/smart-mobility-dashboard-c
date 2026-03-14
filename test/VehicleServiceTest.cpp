@@ -175,6 +175,28 @@ TEST_F(GetStateTest, getStateは同じ参照を返す) {
     EXPECT_EQ(&state1, &state2);
 }
 
+TEST_F(GetStateTest, const版getStateが現在の状態を返す) {
+    const VehicleService& constService = vehicleService;
+    const VehicleState& state = constService.getState();
+
+    EXPECT_EQ(0, state.getSpeed());
+    EXPECT_EQ(VehicleState::Gear::P, state.getGear());
+    EXPECT_FALSE(state.isEngineWarning());
+    EXPECT_TRUE(state.isSeatbeltWarning());
+    EXPECT_FALSE(state.isSpeedWarning());
+}
+
+TEST_F(GetStateTest, const版getStateは状態変更後も最新を返す) {
+    vehicleService.changeGear(VehicleState::Gear::D);
+    vehicleService.accelerate();
+
+    const VehicleService& constService = vehicleService;
+    const VehicleState& state = constService.getState();
+
+    EXPECT_EQ(10, state.getSpeed());
+    EXPECT_EQ(VehicleState::Gear::D, state.getGear());
+}
+
 // ===== 警告灯テスト =====
 
 class WarningTest : public VehicleServiceTest {};
@@ -323,4 +345,44 @@ TEST_F(ServiceBoundaryTest, 速度180から加速しても180のまま) {
     VehicleState& result = vehicleService.accelerate();
 
     EXPECT_EQ(180, result.getSpeed());
+}
+
+TEST_F(ServiceBoundaryTest, エンジン異常時にちょうど60なら減速しない) {
+    vehicleService.changeGear(VehicleState::Gear::D);
+    for (int i = 0; i < 6; i++) {
+        vehicleService.accelerate(); // 60km/h
+    }
+
+    VehicleState& result = vehicleService.setEngineError(true);
+
+    EXPECT_EQ(60, result.getSpeed());
+}
+
+TEST_F(ServiceBoundaryTest, ブレーキ力ちょうど0は有効) {
+    EXPECT_NO_THROW(VehicleService::calculateDeceleration(50, 0.0));
+}
+
+TEST_F(ServiceBoundaryTest, ブレーキ力ちょうど1は有効) {
+    EXPECT_NO_THROW(VehicleService::calculateDeceleration(50, 1.0));
+}
+
+TEST_F(ServiceBoundaryTest, 速度ちょうど0は有効) {
+    EXPECT_NO_THROW(VehicleService::calculateDeceleration(0, 0.5));
+}
+
+TEST_F(ServiceBoundaryTest, ブレーキ力1_01は例外) {
+    EXPECT_THROW(VehicleService::calculateDeceleration(50, 1.01), std::invalid_argument);
+}
+
+TEST_F(ServiceBoundaryTest, ブレーキ力マイナス0_01は例外) {
+    EXPECT_THROW(VehicleService::calculateDeceleration(50, -0.01), std::invalid_argument);
+}
+
+TEST_F(ServiceBoundaryTest, 速度マイナス1は例外) {
+    EXPECT_THROW(VehicleService::calculateDeceleration(-1, 0.5), std::invalid_argument);
+}
+
+TEST_F(ServiceBoundaryTest, 高速時の中間ブレーキ力) {
+    int deceleration = VehicleService::calculateDeceleration(150, 0.5);
+    EXPECT_EQ(4, deceleration);
 }

@@ -161,6 +161,11 @@ TEST(GearEnumTest, gearToStringで全ギア値を文字列に変換) {
     EXPECT_EQ("D", VehicleState::gearToString(VehicleState::Gear::D));
 }
 
+TEST(GearEnumTest, gearToStringで範囲外の値はUNKNOWNを返す) {
+    auto invalidGear = static_cast<VehicleState::Gear>(99);
+    EXPECT_EQ("UNKNOWN", VehicleState::gearToString(invalidGear));
+}
+
 TEST(GearEnumTest, stringToGearで文字列からギアを取得) {
     EXPECT_EQ(VehicleState::Gear::P, VehicleState::stringToGear("P"));
     EXPECT_EQ(VehicleState::Gear::R, VehicleState::stringToGear("R"));
@@ -170,6 +175,14 @@ TEST(GearEnumTest, stringToGearで文字列からギアを取得) {
 
 TEST(GearEnumTest, 無効なギア文字列で例外発生) {
     EXPECT_THROW(VehicleState::stringToGear("X"), std::invalid_argument);
+}
+
+TEST(GearEnumTest, 空文字列で例外発生) {
+    EXPECT_THROW(VehicleState::stringToGear(""), std::invalid_argument);
+}
+
+TEST(GearEnumTest, 小文字ギア文字列で例外発生) {
+    EXPECT_THROW(VehicleState::stringToGear("d"), std::invalid_argument);
 }
 
 // ===== 境界値テスト =====
