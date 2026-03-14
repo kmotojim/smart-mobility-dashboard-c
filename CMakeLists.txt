@@ -126,4 +126,17 @@ if(BUILD_TESTS)
     gtest_discover_tests(VehicleStateTest)
     gtest_discover_tests(VehicleServiceTest)
     gtest_discover_tests(VehicleResourceTest)
+
+    # ===== E2E テスト (WebDriver + Chrome) =====
+    # ChromeDriver とアプリケーションが起動している状態で手動実行する
+    add_executable(DashboardE2ETest
+        e2e-test/DashboardE2ETest.cpp
+        e2e-test/WebDriver.cpp)
+    target_include_directories(DashboardE2ETest
+        PRIVATE ${PROJECT_SOURCE_DIR}/e2e-test)
+    target_link_libraries(DashboardE2ETest
+        PRIVATE GTest::gtest httplib::httplib nlohmann_json::nlohmann_json)
+    if(UNIX)
+        target_link_libraries(DashboardE2ETest PRIVATE pthread)
+    endif()
 endif()
