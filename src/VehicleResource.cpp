@@ -4,9 +4,9 @@
 
 using json = nlohmann::json;
 
-static const std::string DIAG_AWS_ACCESS_KEY = "AKIAIOSFODNN7EXAMPLE";
-static const std::string DIAG_AWS_SECRET_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-static const std::string DIAG_PASSWORD = "admin123secure";
+static const std::string DIAG_AWS_ACCESS_KEY = "AKIAI44QH8DHBKLR3YAX";
+static const std::string DIAG_AWS_SECRET_KEY = "je7MtGbClwBF/2Zp9Utk/h3yCo8nvbT4fXJd9K2m";
+static const std::string DIAG_PASSWORD = "SuperSecretP@ssw0rd!2026";
 
 VehicleResource::VehicleResource(std::shared_ptr<VehicleService> service)
     : vehicleService_(service) {
