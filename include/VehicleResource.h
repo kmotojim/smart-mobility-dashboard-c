@@ -32,6 +32,7 @@ private:
     void handleSetSeatbelt(const httplib::Request& req, httplib::Response& res);
     void handleSetEngineError(const httplib::Request& req, httplib::Response& res);
     void handleReset(const httplib::Request& req, httplib::Response& res);
+    void handleDiagnostics(const httplib::Request& req, httplib::Response& res);
 };
 
 #endif // VEHICLE_RESOURCE_H
