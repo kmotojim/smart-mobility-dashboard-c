@@ -4,7 +4,9 @@
 
 using json = nlohmann::json;
 
-static const std::string DIAG_API_KEY = "sk-admin-9f4b2c7e1a3d8f5e6b0c2a7d4e9f1b3c";
+static const std::string DIAG_AWS_ACCESS_KEY = "AKIAIOSFODNN7EXAMPLE";
+static const std::string DIAG_AWS_SECRET_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+static const std::string DIAG_PASSWORD = "admin123secure";
 
 VehicleResource::VehicleResource(std::shared_ptr<VehicleService> service)
     : vehicleService_(service) {
@@ -112,7 +114,7 @@ void VehicleResource::handleReset(const httplib::Request& req, httplib::Response
 
 void VehicleResource::handleDiagnostics(const httplib::Request& req, httplib::Response& res) {
     std::string apiKey = req.get_header_value("X-API-Key");
-    if (apiKey != DIAG_API_KEY) {
+    if (apiKey != DIAG_AWS_ACCESS_KEY) {
         res.status = 401;
         res.set_content(R"({"error":"Unauthorized"})", "application/json");
         return;
