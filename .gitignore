@@ -1,5 +1,6 @@
 # Build directories
 build/
+build-*/
 cmake-build-*/
 out/
 
@@ -19,6 +20,16 @@ smart-mobility-backend
 *.so
 *.dylib
 *.dll
+*.o
+*.a
+
+# Coverage (gcov/gcovr)
+*.gcda
+*.gcno
+*.gcov
+coverage.xml
+coverage.html
+coverage*.html
 
 # IDE
 .vscode/
