@@ -61,7 +61,7 @@ int main() {
     const char* host = "0.0.0.0";
     int port = 8080;
 
-    std::cout << "Smart Mobility Dashboard Backend (C++)" << std::endl;
+    std::cout << "Smart Mobility Dashboard Backend (C++) v1.1" << std::endl;
     std::cout << "サーバー起動: http://" << host << ":" << port << std::endl;
     std::cout << "終了するには Ctrl+C を押してください" << std::endl;
 
