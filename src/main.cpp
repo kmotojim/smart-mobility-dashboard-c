@@ -3,8 +3,10 @@
 #include <memory>
 #include <csignal>
 #include <filesystem>
+#include <chrono>
 
 std::unique_ptr<httplib::Server> server;
+auto startTime = std::chrono::steady_clock::now();
 
 void signalHandler(int signum) {
     std::cout << "\nシャットダウン中..." << std::endl;
@@ -46,7 +48,12 @@ int main() {
 
     // ヘルスチェックエンドポイント
     server->Get("/health", [](const httplib::Request&, httplib::Response& res) {
-        nlohmann::json health = {{"status", "UP"}};
+        auto now = std::chrono::steady_clock::now();
+        auto uptimeSec = std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count();
+        nlohmann::json health = {
+            {"status", "UP"},
+            {"uptimeSeconds", uptimeSec}
+        };
         res.set_content(health.dump(), "application/json");
     });
 
