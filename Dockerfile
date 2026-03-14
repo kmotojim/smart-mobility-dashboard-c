@@ -17,7 +17,7 @@ COPY src/ ./src/
 
 # ビルド
 RUN mkdir build && cd build && \
-    cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF .. && \
     cmake --build . --parallel $(nproc)
 
 # 実行用の軽量イメージ
