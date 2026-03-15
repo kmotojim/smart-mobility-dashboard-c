@@ -166,11 +166,11 @@ spec:
           echo "Summary saved to $SUMMARY_FILE"
         computeResources:
           requests:
-            memory: "1Gi"
+            memory: "512Mi"
             cpu: "25m"
           limits:
-            memory: "2Gi"
-            cpu: "1000m"
+            memory: "1Gi"
+            cpu: "500m"
       params:
       - name: APP_URL
         type: string
@@ -195,7 +195,7 @@ spec:
         type: string
       steps:
       - name: create-pull-request
-        image: registry.access.redhat.com/ubi8/ubi-minimal:8.9
+        image: registry.access.redhat.com/ubi8/ubi:8.9
         env:
         - name: GH_TOKEN
           valueFrom:
@@ -240,24 +240,34 @@ spec:
           PREOF
           )
 
-          # 既存の open PR があるか確認
-          EXISTING_PR=$(gh pr list --repo "${OWNER}/${REPO}" --head develop --base main --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+          # develop と main に差分があるか確認
+          DIFF_COUNT=$(gh api "repos/${OWNER}/${REPO}/compare/main...develop" --jq '.ahead_by' 2>/dev/null || echo "0")
 
-          if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null" ]; then
-            echo "Existing PR #${EXISTING_PR} found. Updating..."
-            gh pr comment "${EXISTING_PR}" \
-              --repo "${OWNER}/${REPO}" \
-              --body "${PR_BODY}"
-            echo "PR #${EXISTING_PR} updated with new test results."
+          if [ "$DIFF_COUNT" = "0" ] || [ -z "$DIFF_COUNT" ]; then
+            echo "No commits between develop and main. Nothing to promote."
+            echo "PR creation skipped (branches are already in sync)."
           else
-            echo "Creating new PR..."
-            gh pr create \
-              --repo "${OWNER}/${REPO}" \
-              --title "${PR_TITLE}" \
-              --body "${PR_BODY}" \
-              --base main \
-              --head develop
-            echo "PR created successfully!"
+            echo "Found ${DIFF_COUNT} commit(s) ahead of main."
+
+            # 既存の open PR があるか確認
+            EXISTING_PR=$(gh pr list --repo "${OWNER}/${REPO}" --head develop --base main --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+            if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null" ]; then
+              echo "Existing PR #${EXISTING_PR} found. Updating..."
+              gh pr comment "${EXISTING_PR}" \
+                --repo "${OWNER}/${REPO}" \
+                --body "${PR_BODY}"
+              echo "PR #${EXISTING_PR} updated with new test results."
+            else
+              echo "Creating new PR..."
+              gh pr create \
+                --repo "${OWNER}/${REPO}" \
+                --title "${PR_TITLE}" \
+                --body "${PR_BODY}" \
+                --base main \
+                --head develop
+              echo "PR created successfully!"
+            fi
           fi
 
           echo ""
