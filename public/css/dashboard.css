@@ -53,7 +53,7 @@ body {
     font-size: 1.8rem;
     font-weight: 600;
     /* ヘッダーの文字色設定 */
-    color: var(--accent-red);
+    color: var(--accent-blue);
     text-transform: uppercase;
     letter-spacing: 2px;
 }
