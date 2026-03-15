@@ -100,6 +100,4 @@ curl -X POST http://localhost:8080/api/vehicle/seatbelt/true
 
 ## テストコメント
 
-CIパイプライン検証 v0
-
-
+CIパイプライン検証 v1
