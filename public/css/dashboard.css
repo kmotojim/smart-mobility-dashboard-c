@@ -52,7 +52,8 @@ body {
 .dashboard-header h1 {
     font-size: 1.8rem;
     font-weight: 600;
-    color: var(--accent-blue);
+    /* ヘッダーの文字色設定 */
+    color: var(--accent-red);
     text-transform: uppercase;
     letter-spacing: 2px;
 }
