@@ -26,6 +26,7 @@ FROM ubuntu:22.04
 # 必要な実行時ライブラリのインストール
 RUN apt-get update && apt-get install -y \
     libstdc++6 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # 作業ディレクトリ
@@ -33,6 +34,9 @@ WORKDIR /app
 
 # ビルドされたバイナリをコピー
 COPY --from=builder /app/build/smart-mobility-backend .
+
+# 静的ファイルをコピー
+COPY public/ ./public/
 
 # ポート公開
 EXPOSE 8080
