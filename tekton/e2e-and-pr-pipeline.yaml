@@ -5,7 +5,7 @@ metadata:
   namespace: smart-mobility-dev-cpp
 spec:
   description: |
-    ArgoCD sync 成功後に E2E テストを実行し、成功時に develop → main へ PR を作成するパイプライン
+    ArgoCD sync 成功後に C++ E2E テストを実行し、成功時に develop → main へ PR を作成するパイプライン
   params:
   - name: APP_URL
     description: デプロイされたアプリケーションの URL
@@ -18,11 +18,7 @@ spec:
   - name: E2E_REPO_URL
     description: E2E テストコードのリポジトリ URL
     type: string
-    default: "https://github.com/kmotojim/smart-mobility-dashboard.git"
-  - name: MANIFESTS_REPO_URL
-    description: マニフェストリポジトリの URL
-    type: string
-    default: "https://github.com/kmotojim/smart-mobility-dashboard-cpp-manifests.git"
+    default: "https://github.com/kmotojim/smart-mobility-dashboard-c.git"
   - name: MANIFESTS_REPO_OWNER
     description: マニフェストリポジトリのオーナー
     type: string
@@ -121,55 +117,105 @@ spec:
       params:
       - name: APP_URL
         type: string
-      steps:
-      - name: run-tests
-        image: mcr.microsoft.com/playwright/java:v1.47.0-jammy
+      sidecars:
+      - name: chromedriver
+        image: selenium/standalone-chromium:latest
         env:
-        - name: APP_URL
-          value: $(params.APP_URL)
-        - name: HOME
-          value: /workspace
-        - name: MAVEN_OPTS
-          value: "-Dmaven.repo.local=/workspace/.m2/repository"
-        workingDir: $(workspaces.source.path)/e2e-repo/e2e-tests
+        - name: SE_START_VNC
+          value: "false"
+      steps:
+      - name: build-e2e
+        image: image-registry.openshift-image-registry.svc:5000/cluster-admin-devspaces/udi-cpp-dev:latest
+        workingDir: $(workspaces.source.path)/e2e-repo
         script: |
           #!/usr/bin/env bash
           set -e
 
           echo "=========================================="
-          echo "  E2E Test Execution"
+          echo "  Building C++ E2E Tests"
           echo "=========================================="
 
-          mvn test -Dapp.url=${APP_URL} -B 2>&1 | tee /workspace/e2e-output.log
+          mkdir -p build-e2e && cd build-e2e
+          cmake -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release ..
+          cmake --build . --target DashboardE2ETest --parallel $(nproc)
+
+          echo ""
+          echo "=== E2E test binary built ==="
+          ls -la DashboardE2ETest
+      - name: run-tests
+        image: image-registry.openshift-image-registry.svc:5000/cluster-admin-devspaces/udi-cpp-dev:latest
+        env:
+        - name: APP_URL
+          value: $(params.APP_URL)
+        - name: CHROMEDRIVER_HOST
+          value: "127.0.0.1"
+        - name: CHROMEDRIVER_PORT
+          value: "4444"
+        workingDir: $(workspaces.source.path)/e2e-repo
+        script: |
+          #!/usr/bin/env bash
+          set -e
+
+          echo "=========================================="
+          echo "  Running C++ E2E Tests"
+          echo "=========================================="
+
+          # ChromeDriver (Selenium Standalone) の起動を待つ
+          echo "Waiting for ChromeDriver on ${CHROMEDRIVER_HOST}:${CHROMEDRIVER_PORT} ..."
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -s "http://${CHROMEDRIVER_HOST}:${CHROMEDRIVER_PORT}/status" 2>/dev/null | grep -q '"ready"'; then
+              echo "ChromeDriver is ready!"
+              break
+            fi
+            attempt=$((attempt + 1))
+            echo "Attempt $attempt/$max_attempts ..."
+            sleep 2
+          done
+
+          if [ $attempt -eq $max_attempts ]; then
+            echo "ERROR: ChromeDriver did not become ready"
+            exit 1
+          fi
+
+          # E2E テスト実行
+          ./build-e2e/DashboardE2ETest 2>&1 | tee /tmp/e2e-output.log
+          TEST_EXIT=$?
 
           echo ""
           echo "=========================================="
-          echo "  E2E Tests Passed"
+          echo "  E2E Tests Completed (exit=$TEST_EXIT)"
           echo "=========================================="
 
           # テスト結果サマリを生成
           SUMMARY_FILE=$(workspaces.source.path)/e2e-summary.txt
-          echo "## E2E Test Results" > "$SUMMARY_FILE"
+          PASSED=$(grep -c "\[  PASSED  \]" /tmp/e2e-output.log || echo "0")
+          FAILED=$(grep -c "\[  FAILED  \]" /tmp/e2e-output.log || echo "0")
+
+          echo "## E2E Test Results (C++)" > "$SUMMARY_FILE"
           echo "" >> "$SUMMARY_FILE"
-          echo "- **Status**: PASSED" >> "$SUMMARY_FILE"
+          if [ $TEST_EXIT -eq 0 ]; then
+            echo "- **Status**: PASSED" >> "$SUMMARY_FILE"
+          else
+            echo "- **Status**: FAILED" >> "$SUMMARY_FILE"
+          fi
+          echo "- **Passed**: ${PASSED}" >> "$SUMMARY_FILE"
+          echo "- **Failed**: ${FAILED}" >> "$SUMMARY_FILE"
           echo "- **App URL**: ${APP_URL}" >> "$SUMMARY_FILE"
           echo "- **Date**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$SUMMARY_FILE"
+          echo "" >> "$SUMMARY_FILE"
+          echo '```' >> "$SUMMARY_FILE"
+          grep -E "^\[" /tmp/e2e-output.log >> "$SUMMARY_FILE" 2>/dev/null || true
+          echo '```' >> "$SUMMARY_FILE"
 
-          if [ -f target/surefire-reports/*.txt ]; then
-            echo "" >> "$SUMMARY_FILE"
-            echo "### Surefire Report" >> "$SUMMARY_FILE"
-            echo '```' >> "$SUMMARY_FILE"
-            cat target/surefire-reports/*.txt >> "$SUMMARY_FILE" 2>/dev/null || true
-            echo '```' >> "$SUMMARY_FILE"
-          fi
-
-          echo "Summary saved to $SUMMARY_FILE"
+          exit $TEST_EXIT
         computeResources:
           requests:
-            memory: "512Mi"
+            memory: "256Mi"
             cpu: "25m"
           limits:
-            memory: "1Gi"
+            memory: "512Mi"
             cpu: "500m"
       params:
       - name: APP_URL
@@ -215,11 +261,9 @@ spec:
           REPO="$(params.MANIFESTS_REPO_NAME)"
           REVISION="$(params.APP_REVISION)"
 
-          # gh CLI のインストール
           curl -sL https://github.com/cli/cli/releases/download/v2.65.0/gh_2.65.0_linux_amd64.tar.gz | tar xz
           export PATH="$PWD/gh_2.65.0_linux_amd64/bin:$PATH"
 
-          # E2E テスト結果サマリを読み込み
           SUMMARY=""
           if [ -f e2e-summary.txt ]; then
             SUMMARY=$(cat e2e-summary.txt)
@@ -240,7 +284,6 @@ spec:
           PREOF
           )
 
-          # develop と main に差分があるか確認
           DIFF_COUNT=$(gh api "repos/${OWNER}/${REPO}/compare/main...develop" --jq '.ahead_by' 2>/dev/null || echo "0")
 
           if [ "$DIFF_COUNT" = "0" ] || [ -z "$DIFF_COUNT" ]; then
@@ -249,7 +292,6 @@ spec:
           else
             echo "Found ${DIFF_COUNT} commit(s) ahead of main."
 
-            # 既存の open PR があるか確認
             EXISTING_PR=$(gh pr list --repo "${OWNER}/${REPO}" --head develop --base main --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
 
             if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null" ]; then
